@@ -1,8 +1,8 @@
 {
   "url": "https://duetsync.vercel.app",
   "samples": 12,
-  "medianDriftMs": 11.2,
-  "maxDriftMs": 22.5,
+  "medianDriftMs": 7.8,
+  "maxDriftMs": 29.1,
   "environment": "Two independent Chromium browser contexts on one machine; not a physical two-device audio benchmark",
   "checks": [
     "room invitation",
@@ -16,5 +16,6 @@
     "mobile overflow",
     "room termination"
   ],
-  "pageErrors": []
+  "pageErrors": [],
+  "verifiedAt": "2026-10-29T08:53:06.713Z"
 }

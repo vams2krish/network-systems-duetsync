@@ -60,7 +60,7 @@ test('complete listening flow: invite, mismatch, readiness, playback, seek and r
     await a.screenshot({path:'docs/showcase/07-mobile.png',fullPage:true});
     await a.locator('#leave').click();await expect(a.locator('#create')).toBeVisible();await expect(b.locator('#create')).toBeVisible();
     expect(errors).toEqual([]);
-    const report={url:baseURL,samples:drifts.length,medianDriftMs:Number([...drifts].sort((a,b)=>a-b)[Math.floor(drifts.length/2)].toFixed(1)),maxDriftMs:Number(Math.max(...drifts).toFixed(1)),environment:'Two independent Chromium browser contexts on one machine; not a physical two-device audio benchmark',checks:['room invitation','mismatched audio blocked','matching fingerprints','both-ready gate','playback','seek','pause','reconnect reserved seat','mobile overflow','room termination'],pageErrors:errors};
+    const report={verifiedAt:new Date().toISOString(),url:baseURL,samples:drifts.length,medianDriftMs:Number([...drifts].sort((a,b)=>a-b)[Math.floor(drifts.length/2)].toFixed(1)),maxDriftMs:Number(Math.max(...drifts).toFixed(1)),environment:'Two independent Chromium browser contexts on one machine; not a physical two-device audio benchmark',checks:['room invitation','mismatched audio blocked','matching fingerprints','both-ready gate','playback','seek','pause','reconnect reserved seat','mobile overflow','room termination'],pageErrors:errors};
     await writeFile('docs/browser-verification.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
   }finally{await contextA.close();await contextB.close();}
 });

@@ -2,6 +2,8 @@
 
 ### Two places. One moment.
 
+[![Verify DuetSync](https://github.com/vams2krish/network-systems-duetsync/actions/workflows/verify.yml/badge.svg)](https://github.com/vams2krish/network-systems-duetsync/actions/workflows/verify.yml)
+
 **[Open the live product →](https://duetsync.vercel.app)** · [Backend health](https://wweuhpqsuwwcbgheckve.supabase.co/functions/v1/duet-sync/healthz) · [Operations guide](docs/OPERATIONS.md) · [Browser verification](docs/browser-verification.json)
 
 DuetSync gives long-distance couples a private listening room: invite your person, choose the same song, get ready, and press play together. Shared controls coordinate both playheads while your audio files stay on your own devices.
@@ -169,7 +171,7 @@ The build writes `dist/` with the configured public WSS endpoint. `DUET_SOCKET_U
 
 The [checked-in browser report](docs/browser-verification.json) records the tested URL, sampled playhead drift and completed checks. The browser test uses two independent Chromium contexts and exercises invitations, audio mismatch rejection, readiness, actual media playback, seeking, pause, socket reconnection, reserved-seat recovery, room ending and a 390px mobile viewport. JavaScript page errors must be absent for the test to pass.
 
-The verified live run recorded **11.2 ms median** and **22.5 ms maximum** playhead difference across 12 samples, with **zero page errors**. These are results from two independent browser contexts on one machine using the public backend, not a distant-device acoustic benchmark. Seven server integration tests also passed.
+The verified live run recorded **7.8 ms median** and **29.1 ms maximum** playhead difference across 12 samples, with **zero page errors**. These are results from two independent browser contexts on one machine using the public backend, not a distant-device acoustic benchmark. Seven server integration tests also passed.
 
 Server integration tests additionally verify cross-instance state sharing, concurrent seat claims, stale revisions, ownership, expired rooms, origin checks, malformed messages, hidden environment files, payload limits and quotas. The database rejects unauthenticated RPC access. Security advisors report no warnings; private tables intentionally have RLS enabled without public policies.
 
