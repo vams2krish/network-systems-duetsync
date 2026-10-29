@@ -3,3 +3,9 @@ node_modules/
 .env.*
 !.env.example
 *.log
+
+dist/
+.vercel/
+supabase/.temp/
+playwright-report/
+test-results/

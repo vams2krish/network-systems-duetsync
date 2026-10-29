@@ -2,57 +2,87 @@
 
 ### Two places. One moment.
 
-DuetSync is a synchronized music player for long-distance couples. Create a private-by-invitation listening room, share its link, select the same audio file on both devices, and control playback together.
+**[Open the live product →](https://duetsync.vercel.app)** · [Backend health](https://wweuhpqsuwwcbgheckve.supabase.co/functions/v1/duet-sync/healthz) · [Operations guide](docs/OPERATIONS.md) · [Browser verification](docs/browser-verification.json)
 
-**Project type: Computer Networks / Distributed Systems / Full-stack Web Application.** This is **not a Machine Learning (ML), Deep Learning (DL), or Generative AI project**. It uses deterministic networking and playback synchronization; there is no trained model, inference pipeline, or training dataset.
+DuetSync gives long-distance couples a private listening room: invite your person, choose the same song, get ready, and press play together. Shared controls coordinate both playheads while your audio files stay on your own devices.
 
-![DuetSync project screenshot](docs/project-preview.png)
+**Project type: Computer Networks / Distributed Systems / Full-stack Web Application.** This is **not ML, DL, or Generative AI**. Playback uses deterministic clock estimation, versioned state and drift correction; there is no trained model, inference, or training dataset.
 
-## Features
+![DuetSync synchronized listening experience](docs/showcase/05-synchronized-playback.png)
 
-- Two-person rooms with cryptographically random 12-character room codes.
-- Copyable invite links and live partner presence.
-- Shared play, pause, seeking, and ten-second skip controls.
-- WebSocket messages for real-time, bidirectional coordination.
-- Ping/pong clock-offset estimation and displayed round-trip latency.
-- Server-authoritative playback state with monotonic revisions.
-- Periodic playback drift measurement and correction.
-- Local audio selection: audio bytes are never uploaded to the server.
-- Responsive sage-and-cream interface with an original CSS record illustration.
+## Try the live demo in a minute
 
-## Quick start
+1. Open **[duetsync.vercel.app](https://duetsync.vercel.app)** and click **Create our room**.
+2. Click **Copy invite link** and open it on your partner's device, or in a separate browser/private window. Click **Join** there.
+3. On **both** devices, click **Try demo song** to load “A Little Closer,” our original 90-second synthesized sample.
+4. Each person clicks **I'm ready to listen**. Playback becomes available after the audio fingerprints match and both are ready.
+5. Press **Play**. Either person can pause, seek, or skip ten seconds for both.
 
-Requires Node.js 20 or later and npm.
+To use your own music, both listeners must select the **exact same audio file**. File hashing happens locally; files are not uploaded. The sample can also be [downloaded here](https://duetsync.vercel.app/demo.wav).
 
-```sh
-npm ci
-npm start
-```
+## Product showcase
 
-Open `http://localhost:3000` in two browser tabs or devices that can reach the server.
+These are actual application screenshots captured during the automated two-listener flow. Test rooms are ended after verification, so any pictured invitation has expired.
 
-1. Click **Create our room** on the first device.
-2. Copy the invitation link and send it to your partner.
-3. On the other device, open that link and click **Join**.
-4. Choose the **same version of the same audio file** on both devices.
-5. Click Play. Either listener can pause or seek for both.
+### An inviting room for two
 
-For separate devices on your home network, use the server computer's LAN address instead of localhost. For long-distance listening, deploy the Node server to a host that supports persistent WebSocket connections, expose it over HTTPS/WSS, and share that public origin. `PORT` defaults to `3000`; the server binds to `0.0.0.0`. Localhost links cannot be used by a remote partner.
+![Welcome screen and three-step onboarding](docs/showcase/01-welcome.png)
 
-## Network concepts
+### Share an invitation, then meet in the music
 
-### Client–server architecture and WebSockets
+![Invitation and waiting-for-partner state](docs/showcase/02-invitation.png)
 
-The HTTP server serves the interface and upgrades connections to WebSockets. Each room has at most two connected clients. The server serializes accepted playback commands and broadcasts the resulting state to both clients, including the sender.
+### Catch different recordings before playback
+
+![A mismatched audio fingerprint blocks shared playback](docs/showcase/03-file-matching.png)
+
+### Matching audio, two ready listeners
+
+![Verified audio and both listeners ready](docs/showcase/04-ready-together.png)
+
+### Recover a dropped connection
+
+![Playback pauses while a reserved session reconnects](docs/showcase/06-reconnection.png)
+
+### Made for your phone, too
+
+<img src="docs/showcase/07-mobile.png" alt="DuetSync mobile listening room" width="350">
+
+## What's implemented in v2
+
+| Capability | Product behavior |
+| --- | --- |
+| Durable rooms | Shared PostgreSQL state survives worker restarts and is visible across backend instances |
+| Private invitations | Random 128-bit invitation codes; fragment links keep codes out of ordinary HTTP requests |
+| Listener sessions | Random 256-bit per-tab session credentials, hashed before storage |
+| Two reserved seats | Disconnections reserve the listener's seat; another person cannot silently take it |
+| Room locks | Creator can lock/unlock; rooms automatically lock when both seats are occupied |
+| File fingerprinting | SHA-256 over the full file plus a duration check prevents different recordings from playing together |
+| Readiness | Both listeners explicitly unlock browser audio and signal readiness before playback |
+| Shared transport | Play, pause, seek and skips use server-authoritative, scheduled playback state |
+| Drift correction | Small drift adjusts playback rate within ±3%; drift over 250 ms triggers a seek |
+| Recovery | Exponential backoff with jitter, rejoin, state reload, and explicit readiness after reconnect |
+| Heartbeats | Application health checks, WebSocket ping/pong, presence leases and stalled-connection recovery |
+| Lifecycle | Creator ends the room; partner may leave; inactive rooms expire after 30 minutes, with a 24-hour hard limit |
+| Abuse controls | Durable attempt/action quotas, payload limits, bounded queues, slow-consumer limits and origin validation |
+| Deployment | HTTPS frontend on Vercel, WSS backend on Supabase Edge Functions, private PostgreSQL storage |
+| Verification | Server integration tests, automated two-browser product flow, mobile checks and CI |
+
+## How synchronization works
 
 ```text
-Listener A  ←── WebSocket ──→  Node.js room server  ←── WebSocket ──→  Listener B
- local audio                   authoritative state                   local audio
+Listener A ─── WSS ──→ Supabase WebSocket worker A ──┐
+  local audio                                     ├── PostgreSQL CAS room store
+Listener B ─── WSS ──→ Supabase WebSocket worker B ──┘
+  local audio          shared room logic
+
+Vercel serves the static interface over HTTPS.
+Workers share durable state; clients never receive database credentials.
 ```
 
-### Clock synchronization
+### Shared clock
 
-For a ping sent at client time `t0`, returned at client time `t1`, and stamped by the server at `ts`:
+Clients send timestamped pings. Given client send time `t0`, client receive time `t1`, and server timestamp `ts`:
 
 ```text
 roundTripTime = t1 - t0
@@ -60,59 +90,110 @@ clockOffset  = ts - (t0 + t1) / 2
 serverNow    = clientNow + clockOffset
 ```
 
-The client keeps the clock estimate from its lowest-round-trip sample, reducing the influence of queueing delays. This assumes roughly symmetric network delay. It resembles an NTP-style offset estimate but is not a complete NTP implementation. Samples are collected every five seconds.
+The lowest-round-trip sample supplies the current offset estimate. Clients resample every five seconds and after returning to the foreground. This is an NTP-style estimate that assumes roughly symmetric delays, not a full NTP implementation.
 
-### Scheduled state and drift correction
+### Scheduled playback
 
-A state includes `{ playing, position, at, revision }`. The server schedules new controls 350 milliseconds ahead to give both clients time to receive them. A late client computes its catch-up position from the server timestamp:
+A state contains `{ playing, position, at, revision }`. Commands are scheduled **1,200 ms ahead**, leaving time for durable storage and cross-worker delivery. Workers refresh active room snapshots every **400 ms**, with overlapping refreshes suppressed. When a message arrives late, the client computes the expected playhead from its timestamp rather than starting from zero.
 
 ```text
-expectedPosition = position + (serverNow - at) / 1000  // when playing
+expectedPosition = position + max(0, serverNow - at) / 1000  // while playing
 ```
 
-A client applies the state at the scheduled time, cancels superseded timers, and rejects older revisions. Every second it measures the difference between local and expected playback; while playing, differences greater than 150 milliseconds trigger a seek correction. These values are implementation targets, **not a guarantee of audible synchronization**. Network asymmetry, browser timers, buffering, decoding, and audio hardware latency affect results.
+A pause toggle projects the current authoritative playhead to the scheduled pause time, avoiding a backward jump. Seeks use the explicitly requested destination. Every 500 ms, clients measure local drift and either gently adjust playback rate or seek to catch up.
 
-### Lifecycle and consistency
+These are software targets, **not a guarantee of acoustically simultaneous output**. Network asymmetry, browser scheduling, buffering and audio output hardware all contribute latency.
 
-New participants receive the latest room state. Rooms are removed when the last participant disconnects. Concurrent controls use server arrival order. A disconnected client pauses locally; reload and rejoin to resume. There is no automatic reconnection or persistent session recovery.
+### Consistency, readiness and recovery
 
-## Project structure
+PostgreSQL atomically compares the document version before saving a change. Concurrent room mutations retry against fresh state. Playback commands also carry the last observed playback revision, so a delayed control cannot overwrite a newer one. Competing joins cannot claim a third seat.
 
-| File | Purpose |
+New connections load current state. A session token reclaims the listener's reserved seat; a connection identifier prevents an old socket's close handler from marking its replacement offline. Reconnect pauses the room and clears the reconnecting listener's readiness. The partner waits safely until that listener taps Ready again. Presence leases expire after 20 seconds if a worker dies without a close event.
+
+## Stack and source map
+
+| Component | Implementation |
 | --- | --- |
-| `server.js` | HTTP routes, WebSocket protocol, room membership and authoritative state |
-| `public/index.html` | Accessible playback and room interface |
-| `public/style.css` | Responsive styling and CSS album artwork |
-| `public/app.js` | Clock sampling, audio playback, invitations and drift correction |
-| `server.test.js` | Integration test with real WebSocket clients |
-| `docs/project-preview.png` | Actual desktop application screenshot |
-| `docs/mobile-preview.png` | Actual mobile interface screenshot |
+| Interface | Semantic HTML, CSS, browser Audio API and Web Crypto |
+| Room protocol | Shared JavaScript room protocol used by local Node.js and hosted Edge workers |
+| WebSocket transport | Native Edge WebSockets; `ws` for the local Node adapter |
+| Persistence | Supabase PostgreSQL through a service-role-only RPC and compare-and-swap |
+| Frontend hosting | Vercel production deployment |
+| Backend hosting | Supabase Edge Functions with platform-provided server credentials |
+| Testing | Node test runner, Playwright Chromium, GitHub Actions |
 
-## Validation
+```text
+public/                          Interface, playback client and original demo audio
+lib/app.js                       Local HTTP / WebSocket adapter
+lib/hub.js                       Shared connection protocol, heartbeats and coordination
+lib/rooms.js                     Room membership, capabilities and playback rules
+lib/store.js                     Development memory store and durable database adapter
+server.js                        Local / self-hosted Node entrypoint
+server.test.js                   Real WebSocket and concurrency integration tests
+supabase/functions/duet-sync/     Hosted backend entrypoint and dependency map
+supabase/migrations/             Ordered schema, service-role access and expiry cleanup
+scripts/                         Static build and original-audio generator
+test/listening.spec.js           Complete two-browser product-flow verification
+docs/showcase/                   Product screenshots
+.github/workflows/verify.yml     Automated test and build checks
+```
+
+## Run locally
+
+Requires **Node.js 22+** and npm; CI uses Node.js 24.
+
+```sh
+npm ci
+npm start
+```
+
+Open `http://localhost:3000`. Local development uses a memory store and the same room logic, without cloud credentials. For a second listener, use another browser/private window; session credentials are scoped to a browser tab. Use a free `PORT` if another app is already running on 3000.
 
 ```sh
 npm test
-node --check public/app.js
+npx playwright install chromium
+npm run test:e2e
+npm run build
 ```
 
-The integration test checks HTTP serving, room creation, ping/pong, state revisions, late joins, identical broadcasts, room capacity and empty-room cleanup. Browser verification also exercised two-tab room pairing and checked that the 390px mobile layout does not overflow horizontally. Audio synchronization across physically separate devices has not been measured.
+The local browser test starts a dedicated test server on **3187**. To run the same product flow against the live deployment:
 
-## Privacy, limitations and deployment
+```powershell
+$env:BASE_URL='https://duetsync.vercel.app'
+npm run test:e2e
+```
 
-- Use audio you are entitled to play. There is no bundled copyrighted music or streaming-service integration.
-- Both listeners must select matching files. The app does not fingerprint or verify that the files match.
-- Browser autoplay rules may require an initial Play click on each device.
-- Room codes are bearer access keys. Anyone with a code can join if a slot is available. There are no accounts or identity checks.
-- Playback state and room membership are held in memory and disappear when the server restarts.
-- A single server process is supported. Multiple replicas require a shared room store and pub/sub coordination.
-- This prototype validates control messages and bounds WebSocket payload size, but has no production rate limiting, idle-room expiry, authentication, origin allowlist or abuse monitoring. Add these before opening a large public service.
-- Remote deployment requires HTTPS/WSS to encrypt control traffic. Music stays local, but the server observes connection metadata and playback state.
-- Google Fonts is used for optional typography; the interface falls back to system fonts when unavailable.
+The build writes `dist/` with the configured public WSS endpoint. `DUET_SOCKET_URL` can override that endpoint during build. Secrets are never included in the static frontend. See the [operations guide](docs/OPERATIONS.md) for deployment, schema and environment instructions.
 
-## Future work
+## Verification and practical limits
 
-File fingerprint checks, explicit partner audio readiness, reconnect recovery, heartbeats for stale sockets, access-controlled rooms, and measured multi-device synchronization benchmarks.
+The [checked-in browser report](docs/browser-verification.json) records the tested URL, sampled playhead drift and completed checks. The browser test uses two independent Chromium contexts and exercises invitations, audio mismatch rejection, readiness, actual media playback, seeking, pause, socket reconnection, reserved-seat recovery, room ending and a 390px mobile viewport. JavaScript page errors must be absent for the test to pass.
+
+The verified live run recorded **11.2 ms median** and **22.5 ms maximum** playhead difference across 12 samples, with **zero page errors**. These are results from two independent browser contexts on one machine using the public backend, not a distant-device acoustic benchmark. Seven server integration tests also passed.
+
+Server integration tests additionally verify cross-instance state sharing, concurrent seat claims, stale revisions, ownership, expired rooms, origin checks, malformed messages, hidden environment files, payload limits and quotas. The database rejects unauthenticated RPC access. Security advisors report no warnings; private tables intentionally have RLS enabled without public policies.
+
+**Scope:** this is a deployed, hardened product demo. It has not been independently security audited, load-tested at scale, or acoustically measured across physically distant devices. No uptime SLA or cross-device audio-latency guarantee is claimed.
+
+## Privacy and operating boundaries
+
+- Local audio stays local. The backend stores fingerprints, duration, room membership, readiness and playback state; names of local files are not sent.
+- Invites are bearer capabilities. Keep them private; the creator can lock the room or end it. This is invitation-based access, not verified personal identity or an account login.
+- Tokens are kept in `sessionStorage`; losing that storage loses the reserved seat credential. Ending the room and creating a fresh one is the recovery path.
+- Full-byte hashing requires matching files, including metadata. Different encodings or metadata tags can produce different hashes for the same song.
+- Audio files are limited to 100 MB and 24 hours; supported formats depend on the browser. File hashing temporarily allocates file-sized memory.
+- Room and quota tables are private with RLS and no browser policies. A fixed-search-path privileged RPC is callable only by the backend service role. Platform credentials never reach browsers.
+- Scheduled database cleanup runs every ten minutes. Expiry is enforced on access even before physical cleanup.
+- Workers have platform lifetime limits, so reconnect support is part of normal operation. Background tabs and sleeping mobile devices may pause or delay playback.
+- Rooms use periodic snapshot coordination. For large scale, replace frequent reads with shared pub/sub and benchmark storage throughput and cost.
+- Use only music you have the right to play. No Spotify, Apple Music or other commercial streaming integration is included.
+
+## Next roadmap
+
+Completed: matching-file checks, partner readiness, reconnect recovery, stale-socket heartbeats, access-controlled rooms, durable coordination, expiry cleanup, original sample audio, deployment, automated browser verification and the product gallery.
+
+Remaining work: physical two-device acoustic benchmarks, Safari/iOS/Android coverage, high-volume load and chaos testing, push-based cross-worker pub/sub, optional account identity, and independently reviewed security controls. These are future capabilities rather than implied features of this release.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Application code is [MIT](LICENSE). The generated “A Little Closer” demo audio is dedicated to the public domain under [CC0](https://creativecommons.org/publicdomain/zero/1.0/); it contains no third-party recordings or samples. CSS record artwork is original to this project.

@@ -1,0 +1,66 @@
+import {test,expect} from '@playwright/test';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+test('complete listening flow: invite, mismatch, readiness, playback, seek and reconnect',async({browser,baseURL})=>{
+  await mkdir('docs/showcase',{recursive:true});
+  const contextA=await browser.newContext({viewport:{width:1440,height:1180}});
+  const contextB=await browser.newContext({viewport:{width:1440,height:1180}});
+  const errors=[];
+  await contextA.addInitScript(()=>{const Original=window.WebSocket;window.WebSocket=class extends Original{constructor(...args){super(...args);window.__testSocket=this;}};});
+  const a=await contextA.newPage(),b=await contextB.newPage();
+  for(const page of [a,b])page.on('pageerror',e=>errors.push(e.message));
+  try{
+    await a.goto(baseURL);await expect(a.locator('#connection')).toHaveText('● Connected');
+    await expect.poll(()=>a.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(247, 247, 238)');
+    await a.screenshot({path:'docs/showcase/01-welcome.png',fullPage:true});
+    await a.locator('#create').click();await expect(a.locator('#room-actions')).toBeVisible();
+    const code=await a.locator('#code').inputValue();expect(code).toMatch(/^[a-f0-9]{32}$/);
+    await a.screenshot({path:'docs/showcase/02-invitation.png',fullPage:true});
+    await b.goto(`${baseURL}/#room=${code}`);await expect(b.locator('#connection')).toHaveText('● Connected');
+    await expect(b.locator('#code')).toHaveValue(code);await b.locator('#join').click();
+    await expect(a.locator('#presence')).toHaveText('Your person is here. Make a moment.');
+    await a.locator('#demo').click();await expect(a.locator('#ready')).toBeEnabled();
+    const mismatch=Buffer.from(await readFile('public/demo.wav'));mismatch[200]^=1;
+    await b.locator('#file').setInputFiles({name:'Different recording.wav',mimeType:'audio/wav',buffer:mismatch});
+    await expect(b.locator('#ready')).toBeEnabled();
+    await a.locator('#ready').click();await b.locator('#ready').click();
+    await expect(a.locator('#match')).toContainText('doesn’t match');await expect(a.locator('#play')).toBeDisabled();
+    await a.screenshot({path:'docs/showcase/03-file-matching.png',fullPage:true});
+    await b.locator('#demo').click();await expect(b.locator('#title')).toHaveText('A Little Closer');
+    await expect(b.locator('#ready')).toBeEnabled();await b.locator('#ready').click();
+    await expect(a.locator('#play')).toBeEnabled();await expect(b.locator('#play')).toBeEnabled();
+    await a.screenshot({path:'docs/showcase/04-ready-together.png',fullPage:true});
+    await a.locator('#play').click();
+    await expect.poll(()=>a.locator('#audio').evaluate(el=>!el.paused&&el.currentTime>1)).toBe(true);
+    await expect.poll(()=>b.locator('#audio').evaluate(el=>!el.paused&&el.currentTime>1)).toBe(true);
+    const drifts=[];
+    for(let i=0;i<12;i++){const times=await Promise.all([a,b].map(p=>p.locator('#audio').evaluate(el=>el.currentTime)));drifts.push(Math.abs(times[0]-times[1])*1000);await delay(250);}
+    expect(Math.max(...drifts)).toBeLessThan(500);
+    await a.screenshot({path:'docs/showcase/05-synchronized-playback.png',fullPage:true});
+    await b.locator('#seek').evaluate(el=>{el.value='30';el.dispatchEvent(new Event('change',{bubbles:true}));});
+    await expect.poll(()=>a.locator('#audio').evaluate(el=>el.currentTime)).toBeGreaterThan(30);
+    await expect.poll(()=>b.locator('#audio').evaluate(el=>el.currentTime)).toBeGreaterThan(30);
+    await expect(b.locator('#play')).toBeEnabled();await b.locator('#play').click();
+    await expect.poll(()=>a.locator('#audio').evaluate(el=>el.paused)).toBe(true);
+    await expect.poll(()=>b.locator('#audio').evaluate(el=>el.paused)).toBe(true);
+    await a.evaluate(()=>new Promise(resolve=>{
+      window.__testSocket.addEventListener('close',()=>resolve(),{once:true});
+      window.__testSocket.close(4000,'Recovery test');
+    }));
+    await expect(a.locator('#connection')).toHaveText('○ Disconnected');
+    await a.screenshot({path:'docs/showcase/06-reconnection.png',fullPage:true});
+    await expect(a.locator('#room-actions')).toBeVisible();
+    await expect(a.locator('#connection')).toHaveText('● Connected');
+    await expect(a.locator('#ready')).toHaveText("I'm ready to listen");
+    await expect(a.locator('#play')).toBeDisabled();
+    await expect(a.locator('#match')).toContainText('Same audio verified');
+    await a.locator('#ready').click();await expect(a.locator('#play')).toBeEnabled();
+    await a.setViewportSize({width:390,height:844});
+    expect(await a.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await a.screenshot({path:'docs/showcase/07-mobile.png',fullPage:true});
+    await a.locator('#leave').click();await expect(a.locator('#create')).toBeVisible();await expect(b.locator('#create')).toBeVisible();
+    expect(errors).toEqual([]);
+    const report={url:baseURL,samples:drifts.length,medianDriftMs:Number([...drifts].sort((a,b)=>a-b)[Math.floor(drifts.length/2)].toFixed(1)),maxDriftMs:Number(Math.max(...drifts).toFixed(1)),environment:'Two independent Chromium browser contexts on one machine; not a physical two-device audio benchmark',checks:['room invitation','mismatched audio blocked','matching fingerprints','both-ready gate','playback','seek','pause','reconnect reserved seat','mobile overflow','room termination'],pageErrors:errors};
+    await writeFile('docs/browser-verification.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
+  }finally{await contextA.close();await contextB.close();}
+});

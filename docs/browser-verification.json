@@ -1,0 +1,20 @@
+{
+  "url": "https://duetsync.vercel.app",
+  "samples": 12,
+  "medianDriftMs": 11.2,
+  "maxDriftMs": 22.5,
+  "environment": "Two independent Chromium browser contexts on one machine; not a physical two-device audio benchmark",
+  "checks": [
+    "room invitation",
+    "mismatched audio blocked",
+    "matching fingerprints",
+    "both-ready gate",
+    "playback",
+    "seek",
+    "pause",
+    "reconnect reserved seat",
+    "mobile overflow",
+    "room termination"
+  ],
+  "pageErrors": []
+}

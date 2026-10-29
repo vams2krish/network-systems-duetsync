@@ -1,1 +1,39 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DuetSync · A little closer</title><link rel="stylesheet" href="/style.css"></head><body><header><a class="brand" href="/">◒ <span>duet<span class="light">sync</span></span></a><span class="tag">TWO PLACES. ONE MOMENT.</span><span id="connection">Connecting…</span></header><main><div class="intro"><span class="eyebrow">MADE FOR YOUR KIND OF DISTANCE</span><h1>A little music.<br>A little <em>closer.</em></h1><p>Press play on a moment together.<br>Wherever you both happen to be.</p></div><section class="experience"><aside class="room"><span class="eyebrow">YOUR LISTENING ROOM</span><h2>Just the two of you.</h2><div class="people"><div class="avatar">You</div><span class="thread">···· ♡ ····</span><div class="avatar partner">Them</div></div><p id="presence">Create a room to get closer.</p><button id="create">Create our room ↗</button><div class="divider">OR MEET YOUR PERSON</div><label for="code">Partner’s room code</label><div class="join"><input id="code" placeholder="12-character code" maxlength="12"><button id="join">Join</button></div><button class="subtle" id="copy" hidden>Copy invite link ↗</button><p class="note">Private by invitation. Room codes act as access keys.</p></aside><section class="player"><div class="player-top"><span class="eyebrow">THE SOUNDTRACK TO RIGHT NOW</span><span class="live">● LIVE TOGETHER</span></div><div class="art"><div class="orbit o1"></div><div class="orbit o2"></div><div class="disc"><span>duet<br><i>side a / us</i></span></div><span class="art-label">DISTANCE IS JUST A NUMBER</span><span class="heart">♡</span></div><h2 id="title">Your next favorite moment</h2><p id="subtitle">Choose the same audio file on both devices</p><audio id="audio" preload="auto"></audio><input id="seek" aria-label="Playback position" type="range" min="0" max="100" value="0"><div class="times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div><div class="controls"><span>♫</span><button id="back" class="icon" aria-label="Rewind ten seconds">↶</button><button id="play" class="play" aria-label="Play or pause">▶</button><button id="forward" class="icon" aria-label="Forward ten seconds">↷</button><span>♡</span></div><label class="upload" for="file">＋ Choose your song <input type="file" accept="audio/*" id="file" hidden></label></section><aside class="details"><span class="eyebrow">IN THE SAME BEAT</span><h2>Miles apart.<br>Milliseconds close.</h2><div class="metric"><span id="latency">—</span><small>ROUND-TRIP LATENCY</small></div><div class="metric"><span id="drift">—</span><small>LOCAL PLAYBACK DRIFT</small></div><div class="network"><span class="pulse"></span> WebSocket connection<br><small>Shared clock. Shared playhead.<br>A moment that stays in sync.</small></div><p class="note">Your music stays on your device. We only share playback controls.</p></aside></section><p id="status" role="status">A shared soundtrack, without the distance.</p><footer><span>BUILT FOR TWO, WHEREVER YOU ARE.</span><span>Listen together. Feel closer. ♡</span></footer></main><script type="module" src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A private listening room for two. Play the same song together, wherever you are.">
+  <title>DuetSync · A little closer</title>
+  <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header><a class="brand" href="/">◒ <span>duet<span class="light">sync</span></span></a><span class="tag">TWO PLACES. ONE MOMENT.</span><span id="connection" role="status">Connecting…</span></header>
+<main>
+  <div class="intro"><span class="eyebrow">MADE FOR YOUR KIND OF DISTANCE</span><h1>A little music.<br>A little <em>closer.</em></h1><p>Press play on a moment together.<br>Wherever you both happen to be.</p></div>
+  <section class="experience" aria-label="Shared listening room">
+    <aside class="room"><span class="eyebrow">YOUR LISTENING ROOM</span><h2>Just the two of you.</h2>
+      <div class="people"><div class="avatar">You</div><span class="thread">···· ♡ ····</span><div class="avatar partner">Them</div></div>
+      <p id="presence">Create a room to get closer.</p><button id="create">Create our room ↗</button>
+      <div id="join-fields"><div class="divider">OR MEET YOUR PERSON</div><label for="code">Partner’s invitation code</label><div class="join"><input id="code" placeholder="Paste invitation code" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false"><button id="join">Join</button></div></div>
+      <div id="room-actions" hidden><button class="subtle" id="copy">Copy invite link ↗</button><button class="subtle" id="lock">Lock room</button><button class="subtle danger" id="leave">Leave room</button></div>
+      <p class="note">Invitation only. Two seats. Your session reconnects automatically.</p>
+    </aside>
+    <section class="player" aria-label="Music player">
+      <div class="player-top"><span class="eyebrow">THE SOUNDTRACK TO RIGHT NOW</span><span class="live" id="live">○ YOUR MOMENT AWAITS</span></div>
+      <div class="art" aria-hidden="true"><div class="orbit o1"></div><div class="orbit o2"></div><div class="disc"><span>duet<br><i>side a / us</i></span></div><span class="art-label">DISTANCE IS JUST A NUMBER</span><span class="heart">♡</span></div>
+      <h2 id="title">Your next favorite moment</h2><p id="subtitle">Choose a song, or try our original demo.</p>
+      <audio id="audio" preload="auto"></audio>
+      <input id="seek" aria-label="Playback position" type="range" min="0" max="100" step="0.1" value="0" disabled>
+      <div class="times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div>
+      <div class="controls"><span aria-hidden="true">♫</span><button id="back" class="icon" aria-label="Rewind ten seconds" disabled>↶</button><button id="play" class="play" aria-label="Play together" disabled>▶</button><button id="forward" class="icon" aria-label="Forward ten seconds" disabled>↷</button><span aria-hidden="true">♡</span></div>
+      <div class="song-actions"><button class="upload" id="choose">＋ Choose your song</button><button class="upload" id="demo">♫ Try demo song</button><input type="file" accept="audio/*" id="file" hidden></div>
+      <div class="readiness"><p id="match">Pick the same audio on both devices.</p><button id="ready" disabled>I'm ready to listen</button><div id="readiness" class="readiness-chips" aria-live="polite"><span>You · choose audio</span><span>Partner · waiting</span></div></div>
+    </section>
+    <aside class="details"><span class="eyebrow">IN THE SAME BEAT</span><h2>Miles apart.<br>Milliseconds close.</h2><div class="metric"><span id="latency">—</span><small>ROUND-TRIP LATENCY</small></div><div class="metric"><span id="drift">—</span><small>LOCAL PLAYBACK DRIFT</small></div><div class="network"><span class="pulse"></span> Shared clock &amp; playhead<br><small>Matching audio. Two ready listeners.<br>One moment that stays in sync.</small></div><p class="note">Your files stay on your device. Only audio fingerprints and playback controls are shared.</p><p class="note">Demo: “A Little Closer”<br>Original synthesized audio · CC0</p></aside>
+  </section>
+  <p id="status" role="status" aria-live="polite">Start a room, invite your person, and choose a song.</p>
+  <div class="how-it-works"><span class="eyebrow">YOUR FIRST MOMENT, IN THREE STEPS</span><div><p><strong>01 / Make room for two</strong>Create a room and share your invitation.</p><p><strong>02 / Find your soundtrack</strong>Choose matching files, or both try the demo.</p><p><strong>03 / Meet in the music</strong>Tap Ready on each device. Play together.</p></div></div>
+  <footer><span>BUILT FOR TWO, WHEREVER YOU ARE.</span><span>Listen together. Feel closer. ♡</span></footer>
+</main>
+<script type="module" src="/app.js"></script>
+</body></html>
